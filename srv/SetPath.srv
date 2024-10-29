@@ -1,0 +1,14 @@
+geometry_msgs/Point start
+geometry_msgs/Point goal
+
+---
+std_msgs/Int32 explored_nodes
+std_msgs/Int32 total_cost1
+
+std_msgs/Float32 path_length
+std_msgs/Float32 min_distance_to_obstacle
+std_msgs/Float32 max_distance_to_obstacle
+std_msgs/Float32 mean_distance_to_obstacle
+std_msgs/Float32 mean_std_dev_to_obstacle
+
+std_msgs/Float32 cost_weight

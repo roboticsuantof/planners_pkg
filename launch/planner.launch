@@ -1,0 +1,32 @@
+<launch>
+    <arg name="planner_type" default="rrt_star"/>
+
+    <arg name="map_file"        default="agriculture"/>
+
+    <arg name="world_frame" default="map"/> 
+    <arg name="ugv_frame" default="ugv_base_link"/> 
+    <arg name="viz_file" default="agriculture"/> 
+    <arg name="rviz" default="true"/> 
+
+    <!-- Planner -->
+    <include file="$(find planners_pkg)/launch/planners/$(arg planner_type).launch"/>
+
+    <!-- Maps : Add  the launch for PointCloud necessary to use-->
+        <include file="$(find planners_pkg)/launch/octomap_server.launch">
+        <arg name="map_file"  value="$(arg map_file)"/>    
+    </include>
+    <include file="$(find planners_pkg)/launch/octomap_server.launch">
+        <arg name="map_file"  value="$(arg map_file)_obstacles"/>    
+        <arg name="node_name"  value="octomap_server_obstacles"/>  
+        <arg name="published_pc"  value="/region_growing_obstacles_pc_map"/>   
+    </include>
+    <include file="$(find planners_pkg)/launch/octomap_server.launch">
+        <arg name="map_file"  value="$(arg map_file)_traversability"/>   
+        <arg name="node_name"  value="octomap_server_traversability"/>   
+        <arg name="published_pc"  value="/region_growing_traversability_pc_map"/>   
+    </include>
+
+    <node pkg="rviz" name="rviz" type="rviz" args="-d $(find planners_pkg)/viz/$(arg viz_file).rviz" if="$(arg rviz)"/>
+
+
+    </launch>
