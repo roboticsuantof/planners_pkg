@@ -22,7 +22,7 @@ void rrtStarPlanner::init(float ws_x_max_, float ws_y_max_, float ws_z_max_, flo
 				   std::string frame_id_, double goal_gap_m_, double distance_obstacle_ugv_, Grid3d *grid3D_, std::string map_file_, std::string path_, ros::NodeHandlePtr nh_)
 {
 	// Pointer to the nodeHandler
-	planner_type = "RRT_Star";
+	planner_type = "rrt_star";
 	printf("Global Planner RRT Star Node : \n");// Not target initially
 	ws_x_max = (ws_x_max_);
 	ws_y_max = (ws_y_max_);

@@ -27,6 +27,7 @@ Global Planner Class using RANDOM Algorithms (RRT, RRT*, biRRT)
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/Transform.h>
 #include <geometry_msgs/Vector3.h>
+#include <nav_msgs/Path.h>
 
 #include <std_msgs/Bool.h>
 #include <visualization_msgs/MarkerArray.h>
@@ -97,6 +98,7 @@ Global Planner Class using RANDOM Algorithms (RRT, RRT*, biRRT)
             void readPointCloudTraversabilityMapCallback(const sensor_msgs::PointCloud2::ConstPtr& msg);
             void readPointCloudUGVObstaclesMapCallback(const sensor_msgs::PointCloud2::ConstPtr& msg);
             bool requestPathService(planners_pkg::SetPathRequest &_req, planners_pkg::SetPathResponse &_rep);
+            void manageComputedPath();
 
             /*
             @brief: These functions tries to pass the start and goal positions to the thetastar object
@@ -117,26 +119,20 @@ Global Planner Class using RANDOM Algorithms (RRT, RRT*, biRRT)
 
             //Publishers and Subscribers
             ros::Subscriber point_cloud_map_ugv_sub_, point_cloud_map_trav_sub_;
-
-            ros::ServiceServer planner_server_;
+            ros::Publisher computed_path_pub_;
 
             //Services servers
-            ros::ServiceServer global_replanning_service, reset_global_costmap_service, plan_request_service;
-            ros::ServiceClient recovery_rot_srv_client;
+            ros::ServiceServer planner_server_;
 
             //tf buffer used to get the base_link position on the map(i.e. tf base_link-map)
             std::shared_ptr<tf2_ros::Buffer> tfBuffer;
             std::unique_ptr<tf2_ros::TransformListener> tf2_list;
-
             std::unique_ptr<tf::TransformListener> tf_list_ptr;
-
-            std_msgs::Bool flg_replan_status;
 
             std::string robot_frame, world_frame, node_name;
 
             //Output variables
             int number_of_points;
-            int seq;
 
             // Class declaration
 	        Grid3d *grid_3D;
@@ -156,8 +152,6 @@ Global Planner Class using RANDOM Algorithms (RRT, RRT*, biRRT)
             bool use_distance_function; //Only related with tether and UAV distance
             sensor_msgs::PointCloud2::ConstPtr pc_obs_ugv;
 
-            octomap_msgs::OctomapConstPtr map;
-
             double ws_x_max, ws_y_max, ws_z_max;
             double ws_x_min, ws_y_min, ws_z_min;
 
@@ -167,8 +161,6 @@ Global Planner Class using RANDOM Algorithms (RRT, RRT*, biRRT)
             double distance_obstacle_robot; //Safe distance to obstacle to accept a point valid for UGV and UAV
             int sample_mode; // 0: random sample for UGV and UAV , 1: random sample only for UAV  
             double w_nearest_ugv ,w_nearest_uav ,w_nearest_smooth;
-
-            double min_distance_add_new_point;
 
             std::string planner_type;
 

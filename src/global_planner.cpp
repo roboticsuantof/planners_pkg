@@ -27,8 +27,6 @@ GlobalPlanner::GlobalPlanner(std::string node_name_)
 //This function gets parameter from param server at startup if they exists, if not it passes default values
 void GlobalPlanner::configParams()
 {
-    //At startup, no goal and no costmap received yet
-    seq = 0;
     //Get params from param server. If they dont exist give variables default values
     nh->param("show_config", showConfig, (bool)0);
     nh->param("planner_type", planner_type, (std::string)"rrt_star");
@@ -73,6 +71,8 @@ void GlobalPlanner::configRRTStar()
 
 void GlobalPlanner::configTopics()
 {
+    computed_path_pub_ = nh->advertise<nav_msgs::Path>("computed_path", 1000, true);
+    
     point_cloud_map_trav_sub_ = nh->subscribe( "/region_growing_traversability_pc_map", 1,  &GlobalPlanner::readPointCloudTraversabilityMapCallback, this);
     point_cloud_map_ugv_sub_ = nh->subscribe( "/region_growing_obstacles_pc_map", 1,  &GlobalPlanner::readPointCloudUGVObstaclesMapCallback, this);
     planner_server_ = lnh_.advertiseService("get_algorithm", &GlobalPlanner::requestPathService, this);
@@ -117,12 +117,11 @@ bool GlobalPlanner::requestPathService(planners_pkg::SetPathRequest &_req, plann
         number_of_points = rrt_star_planner->computePath();
         if (number_of_points > 0){ 
             ROS_INFO(PRINTF_GREEN "Global Planner: Number of points in path: %d", number_of_points);
-            // std::list<RRTNode*> rrt_path = rrt_star_planner->getPath();
+            manageComputedPath();
             ret = true;
         }
         else
             ROS_INFO(PRINTF_YELLOW "Global Planner: Number of points in path: %d", number_of_points);
-
     }
     return ret;
 }
@@ -150,5 +149,31 @@ void GlobalPlanner::configRandomPlanner()
 {
     rrt_star_planner->configRRTParameters( n_iter, n_loop, radius_near_nodes, step_steer, samp_goal_rate, w_nearest_ugv ,w_nearest_smooth);
 }
+
+void GlobalPlanner::manageComputedPath()
+{
+    nav_msgs::Path path_;
+    std::list<RRTNode*> rrt_path_ = rrt_star_planner->getPath();
+    
+    // Set the header for path message (e.g., the frame ID and timestamp)
+    path_.header.frame_id = "map";  // Use your desired frame
+    path_.header.stamp = ros::Time::now();
+    // Iterate through the rrt_path_ and populate path_ with PoseStamped
+    for (auto p_ : rrt_path_) {
+        geometry_msgs::PoseStamped pose;
+        // RRTNode has position and rotation information
+        pose.pose.position.x = p_->pos.x;
+        pose.pose.position.y = p_->pos.y;
+        pose.pose.position.z = p_->pos.z;
+        pose.pose.orientation.x = p_->rot.x;
+        pose.pose.orientation.y = p_->rot.y;
+        pose.pose.orientation.z = p_->rot.z;
+        pose.pose.orientation.w = p_->rot.w;
+        // Add the PoseStamped to the path
+        path_.poses.push_back(pose);
+    }
+    computed_path_pub_.publish(path_);
+}
+
 
 // namespace PathPlannersgeometry_msgs::Vector3

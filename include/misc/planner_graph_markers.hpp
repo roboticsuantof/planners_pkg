@@ -153,7 +153,7 @@ class PlannerGraphMarkers
 				lines_ugv_marker.markers[i_-1].pose.orientation.y = 0.0;
 				lines_ugv_marker.markers[i_-1].pose.orientation.z = 0.0;
 				lines_ugv_marker.markers[i_-1].pose.orientation.w = 1.0;
-				lines_ugv_marker.markers[i_-1].scale.x = 0.1;
+				lines_ugv_marker.markers[i_-1].scale.x = 1.0;
 				// lines_ugv_marker.markers[i].scale.y = 0.3;
 				// lines_ugv_marker.markers[i].scale.z = 0.1;
 				lines_ugv_marker.markers[i_-1].color.a = 1.0;

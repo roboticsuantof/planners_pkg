@@ -98,6 +98,10 @@ public:
 	   Set the point start and goal to compute the path
 	**/
 	void setStartAndGoal(geometry_msgs::Point s_, geometry_msgs::Point g_);
+  	/** 
+	   Save the path in a RRTNode list
+	**/
+	std::list<RRTNode*> getPath();
 	/** 
 	   Compute an unic ID for a point
 	**/
@@ -148,7 +152,6 @@ protected:
 	double costBetweenNodes(const RRTNode q_near_, const RRTNode q_new_);
   	
 	bool isGoal(const RRTNode st_);
-  	std::list<RRTNode*> getPath();
 
 	std::vector<int> getNearNodes(const RRTNode &q_new_, float radius_);
 
