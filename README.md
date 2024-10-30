@@ -7,7 +7,7 @@ The planner can used segmentated Point Cloud to compute solution. The Node in ch
 
 ## Steps for use
 
-To use the planner, consider the launch "planner.launch" as follow:
+To use the planner, consider the launch ```planner.launch``` as follow:
 
 ```
 roslaunch planner_pkg planner.launch
@@ -17,7 +17,7 @@ IMPORTANT: if is the first time that you execute de map, a grid will star to com
 
 Everytime that the launch is use, a Trilination Interpolation is executed. Wait till the computation is done.
 
-Then use the service /planner_node/get_algorithm. For example, if the start position is (-25.0, -40.0, -3.0) and the goal point (-25.0,-40.0,-3.0), the service is:
+Then use the service ```/planner_node/get_algorithm```. For example, if the start position is (-25.0, -40.0, -3.0) and the goal point (-25.0,-40.0,-3.0), the service is:
 
 ```
 rosservice call /planner_node/get_algorithm "start:
