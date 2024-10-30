@@ -17,7 +17,7 @@ IMPORTANT: if is the first time that you execute de map, a grid will star to com
 
 Everytime that the launch is use, a Trilination Interpolation is executed. Wait till the computation is done.
 
-Then use the service ```/planner_node/get_algorithm```. For example, if the start position is (-25.0, -40.0, -3.0) and the goal point (-25.0,-40.0,-3.0), the service is:
+Then use the rosservice ```/planner_node/get_algorithm```. For example, if the start position is (-25.0, -40.0, -3.0) and the goal point (-25.0,-40.0,-3.0), the service is:
 
 ```
 rosservice call /planner_node/get_algorithm "start:
@@ -29,4 +29,5 @@ goal:
   y: 18.0
   z: 0.0" 
 ```
+The path information is publisher in ```/planner_node/computed_path``` and the path markers is publishe rin ```/planner_node/path_marker_planner```
 
