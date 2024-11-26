@@ -24,6 +24,7 @@
 #include <pcl/registration/ndt.h>
 #include <pcl/filters/approximate_voxel_grid.h>
 
+
 struct TrilinearParams
 {
 	float a0, a1, a2, a3, a4, a5, a6, a7;
@@ -53,6 +54,7 @@ private:
 	
 	// Octomap parameters
 	float m_maxX, m_maxY, m_maxZ;
+	double min_X, min_Y, min_Z, max_X, max_Y, max_Z;
 	float m_resolution, m_oneDivRes;
 	octomap::OcTree *m_octomap;
 	
@@ -70,6 +72,8 @@ private:
 	gridCell *m_grid;
 	int m_gridSize, m_gridSizeX, m_gridSizeY, m_gridSizeZ;
 	int m_gridStepY, m_gridStepZ;
+
+	double ws_x_max, ws_x_min, ws_y_max, ws_y_min, ws_z_max, ws_z_min;
 	
 	// 3D point clound representation of the map
 	pcl::PointCloud<pcl::PointXYZ>::Ptr m_cloud;
@@ -101,13 +105,17 @@ public:
 		// Load paraeters
 		double value;
 		ros::NodeHandle lnh("~");
+
 		m_nodeName = node_name;
+
+		std::cout << std::endl << "	Initialazing  Grid3d  Class: from " <<  node_name << " node" << std::endl;
+
 		if(!lnh.getParam("global_frame_id", m_globalFrameId))
 			m_globalFrameId = "map";	
 		if(!lnh.getParam("map_path", m_mapPath))
 			m_mapPath = "map.ot";
 		if(!lnh.getParam("publish_point_cloud", m_publishPc))
-			m_publishPc = false;
+			m_publishPc = true;
 		if(!lnh.getParam("publish_point_cloud_rate", m_publishPointCloudRate))
 			m_publishPointCloudRate = 0.2;	
 		if(!lnh.getParam("publish_grid_slice", value))
@@ -118,6 +126,21 @@ public:
 		if(!lnh.getParam("sensor_dev", value))
 			value = 0.2;
 		m_sensorDev = (float)value;
+
+		if(!lnh.getParam("ws_x_min", ws_x_min))
+			ws_x_min = 5;
+		if(!lnh.getParam("ws_x_max", ws_x_max))
+			ws_x_max = 5;
+		if(!lnh.getParam("ws_y_min", ws_y_min))
+			ws_y_min = -5;
+		if(!lnh.getParam("ws_y_max", ws_y_max))
+			ws_y_max = 5;
+		if(!lnh.getParam("ws_z_min", ws_z_min))
+			ws_z_min = 0;
+		if(!lnh.getParam("ws_z_max", ws_z_max))
+			ws_z_max = 5;
+
+		std::cout << "	Grid3d  Class: " <<  node_name << " node . ws_min=["<< ws_x_min <<","<<ws_y_min << "," << ws_z_min<<"] ws_max=["<< ws_x_max <<","<<ws_y_max << "," << ws_z_max<<"]" << std::endl << std::endl;
 		
 		// Load octomap 
 		m_octomap = NULL;
@@ -136,13 +159,13 @@ public:
 			if(!loadGrid(path))
 			{						
 				// Compute the gridMap using kdtree search over the point-cloud
-				std::cout << "Computing 3D occupancy grid. This will take some time..." << std::endl;
+				std::cout << "	Computing 3D occupancy grid. This will take some time..." << std::endl;
 				computeGrid();
 				std::cout << "\tdone!" << std::endl;
 				
 				// Save grid on file
 				if(saveGrid(path))
-					std::cout << "Grid map successfully saved on " << path << std::endl;
+					std::cout << "	Grid map successfully saved on " << path << std::endl;
 			}
 			
 			// Build the msg with a slice of the grid if needed
@@ -182,14 +205,35 @@ public:
 		m_nodeName = node_name;
 
 		if(!lnh.getParam("sensor_dev", value))
-			value = 0.2;
+			value = 0.4;
+		
+		if(!lnh.getParam("ws_x_min", ws_x_min))
+			ws_x_min = 5;
+		if(!lnh.getParam("ws_x_max", ws_x_max))
+			ws_x_max = 5;
+		if(!lnh.getParam("ws_y_min", ws_y_min))
+			ws_y_min = -5;
+		if(!lnh.getParam("ws_y_max", ws_y_max))
+			ws_y_max = 5;
+		if(!lnh.getParam("ws_z_min", ws_z_min))
+			ws_z_min = 0;
+		if(!lnh.getParam("ws_z_max", ws_z_max))
+			ws_z_max = 5;
+		if(!lnh.getParam("publish_point_cloud", m_publishPc))
+			m_publishPc = true;
+
+		std::cout << std::endl << "	Grid3d  Class: " <<  node_name << " node . ws_min=["<< ws_x_min <<","<<ws_y_min << "," << ws_z_min<<"] ws_max=["<< ws_x_max <<","<<ws_y_max << "," << ws_z_max<<"]" << std::endl << std::endl;
+		
+
 		m_sensorDev = (float)value;
 		m_mapPath = map_path;
 		// Load octomap 
 		m_octomap = NULL;
 		m_grid = NULL;
 		
-		if(loadOctomap(m_mapPath))
+		bool load_map_ = loadOctomap(m_mapPath);
+		printf("load_map_=[%s]\n", load_map_? "true" : "false");
+		if(load_map_)
 		{
 			// Compute the point-cloud associated to the ocotmap
 			computePointCloud();
@@ -200,18 +244,27 @@ public:
 				path = m_mapPath.substr(0,m_mapPath.find(".bt"))+".grid";
 			if(m_mapPath.compare(m_mapPath.length()-3, 3, ".ot") == 0)
 				path = m_mapPath.substr(0,m_mapPath.find(".ot"))+".grid";
-			if(!loadGrid(path))
+			bool load_grid_ = loadGrid(path);
+			printf("load_grid_=[%s]\n", load_grid_? "true" : "false");
+			if(!load_grid_)
 			{						
 				// Compute the gridMap using kdtree search over the point-cloud
-				std::cout << "Computing 3D occupancy grid. This will take some time..." << std::endl;
+				std::cout << "	Computing 3D occupancy grid. This will take some time..." << std::endl;
 				computeGrid();
 				std::cout << "\tdone!" << std::endl;
 				
 				// Save grid on file
 				if(saveGrid(path))
-					std::cout << "Grid map successfully saved on " << path << std::endl;
+					std::cout << "	Grid map successfully saved on " << path << std::endl;
 			}			
 		}
+
+		if(m_publishPc)
+			{
+				m_pcPub = m_nh.advertise<sensor_msgs::PointCloud2>(node_name+"/map_point_cloud", 1, true);
+				std::cout << "Grid 3D publishing topic " << node_name+"/map_point_cloud" << std::endl;
+				// mapTimer = m_nh.createTimer(ros::Duration(1.0/m_publishPointCloudRate), &Grid3d::publishMapPointCloudTimer, this);
+			}
 
 		// Setup ICP
 		m_icp.setMaximumIterations (50);
@@ -271,11 +324,17 @@ public:
 	
 	bool isIntoMap(double x, double y, double z)
 	{
-		return (x >= 0.0 && y >= 0.0 && z >= 0.0 && x < m_maxX && y < m_maxY && z < m_maxZ);
+		// printf("x=[%f / %f / %f]  y=[%f / %f / %f]  z=[%f / %f / %f]\n", min_X, x, max_X, min_Y, y, max_Y, min_Z, z, max_Z);
+auto index = point2grid(x, y, z);
+if (index < 0 || index >= m_gridSize) {
+    // std::cerr << "		Error: Index out of bounds. Index: " << index << ". Size:"<< m_gridSize << ". Pto:"<<x<<","<<y<<","<<z<< std::endl;
+}
+		return (x > min_X && y > min_Y && z > min_Z && x < max_X && y < max_Y && z < max_Z);
 	}
 
 	double getPointDist(double x, double y, double z)
 	{
+		// printf("getPointDist: point2grid(%f, %f, %f)=%i\n",x,y,z,point2grid(x, y, z));
 		return m_grid[point2grid(x, y, z)].dist;
 	}
 
@@ -287,58 +346,10 @@ public:
 	TrilinearParams getPointDistInterpolation(double x, double y, double z)
 	{
 		TrilinearParams r;
-		if(x >= 0.0 && y >= 0.0 && z >= 0.0 && x < m_maxX && y < m_maxY && z < m_maxZ)
+		if(x > min_X && y > min_Y && z > min_Z && x < max_X && y < max_Y && z < max_Z){
+			// printf("getPointDistInterpolation: point2grid(x, y, z)=%i\n",point2grid(x, y, z));
 			r = m_triGrid[point2grid(x, y, z)];
-		return r;
-	}
-
-	TrilinearParams computeDistInterpolation(const double x, const double y, const double z)
-	{
-		TrilinearParams r;
-
-		if(isIntoMap(x, y, z))
-		{
-			// Get 3D point index
-			uint64_t i = point2grid(x, y, z); 
-
-			// Get neightbour values to compute trilinear interpolation
-			float c000, c001, c010, c011, c100, c101, c110, c111;
-			c000 = m_grid[i].dist; 
-			c001 = m_grid[i+m_gridStepZ].dist; 
-			c010 = m_grid[i+m_gridStepY].dist; 
-			c011 = m_grid[i+m_gridStepY+m_gridStepZ].dist; 
-			c100 = m_grid[i+1].dist; 
-			c101 = m_grid[i+1+m_gridStepZ].dist; 
-			c110 = m_grid[i+1+m_gridStepY].dist; 
-			c111 = m_grid[i+1+m_gridStepY+m_gridStepZ].dist; 
-
-			// Compute trilinear parameters
-			const float div = -m_oneDivRes*m_oneDivRes*m_oneDivRes;
-			float x0, y0, z0, x1, y1, z1;
-			x0 = ((int)(x*m_oneDivRes))*m_resolution;
-			x1 = x0+m_resolution;
-			y0 = ((int)(y*m_oneDivRes))*m_resolution;
-			y1 = y0+m_resolution;
-			z0 = ((int)(z*m_oneDivRes))*m_resolution;
-			z1 = z0+m_resolution;
-			r.a0 = (-c000*x1*y1*z1 + c001*x1*y1*z0 + c010*x1*y0*z1 - c011*x1*y0*z0 
-			+ c100*x0*y1*z1 - c101*x0*y1*z0 - c110*x0*y0*z1 + c111*x0*y0*z0)*div;
-			r.a1 = (c000*y1*z1 - c001*y1*z0 - c010*y0*z1 + c011*y0*z0
-			- c100*y1*z1 + c101*y1*z0 + c110*y0*z1 - c111*y0*z0)*div;
-			r.a2 = (c000*x1*z1 - c001*x1*z0 - c010*x1*z1 + c011*x1*z0 
-			- c100*x0*z1 + c101*x0*z0 + c110*x0*z1 - c111*x0*z0)*div;
-			r.a3 = (c000*x1*y1 - c001*x1*y1 - c010*x1*y0 + c011*x1*y0 
-			- c100*x0*y1 + c101*x0*y1 + c110*x0*y0 - c111*x0*y0)*div;
-			r.a4 = (-c000*z1 + c001*z0 + c010*z1 - c011*z0 + c100*z1 
-			- c101*z0 - c110*z1 + c111*z0)*div;
-			r.a5 = (-c000*y1 + c001*y1 + c010*y0 - c011*y0 + c100*y1 
-			- c101*y1 - c110*y0 + c111*y0)*div;
-			r.a6 = (-c000*x1 + c001*x1 + c010*x1 - c011*x1 + c100*x0 
-			- c101*x0 - c110*x0 + c111*x0)*div;
-			r.a7 = (c000 - c001 - c010 + c011 - c100
-			+ c101 + c110 - c111)*div;
 		}
-
 		return r;
 	}
 
@@ -357,12 +368,12 @@ public:
 		double size = m_gridSizeX*m_gridSizeY*m_gridSizeZ;
 		double x0, y0, z0, x1, y1, z1;
 		double div = -1.0/(m_resolution*m_resolution*m_resolution);
-		for(iz=0, z0=0.0, z1=m_resolution; iz<m_gridSizeZ-1; iz++, z0+=m_resolution, z1+=m_resolution)
+		for(iz=0, z0=min_Z, z1=min_Z+m_resolution; iz<m_gridSizeZ-1; iz++, z0+=m_resolution, z1+=m_resolution)
 		{
-			printf("Computing trilinear interpolation map: : %3.2lf%%        \r", count/size * 100.0);
-			for(iy=0, y0=0.0, y1=m_resolution; iy<m_gridSizeY-1; iy++, y0+=m_resolution, y1+=m_resolution)
+			printf("	Computing trilinear interpolation map: : %3.2lf%%        \r", count/size * 100.0);
+			for(iy=0, y0=min_Y, y1=min_Y+m_resolution; iy<m_gridSizeY-1; iy++, y0+=m_resolution, y1+=m_resolution)
 			{
-				for(ix=0, x0=0.0, x1=m_resolution; ix<m_gridSizeX-1; ix++, x0+=m_resolution, x1+=m_resolution)
+				for(ix=0, x0=min_X, x1=min_X+m_resolution; ix<m_gridSizeX-1; ix++, x0+=m_resolution, x1+=m_resolution)
 				{
 					double c000, c001, c010, c011, c100, c101, c110, c111;
 					TrilinearParams p;
@@ -376,6 +387,15 @@ public:
 					c101 = m_grid[(ix+1) + (iy+0)*m_gridStepY + (iz+1)*m_gridStepZ].dist;
 					c110 = m_grid[(ix+1) + (iy+1)*m_gridStepY + (iz+0)*m_gridStepZ].dist;
 					c111 = m_grid[(ix+1) + (iy+1)*m_gridStepY + (iz+1)*m_gridStepZ].dist;
+
+					// printf("point[%i %i %i]  c:[%i %i %i %i %i %i %i %i]\n",ix, iy, iz,(ix+0) + (iy+0)*m_gridStepY + (iz+0)*m_gridStepZ,
+					// 																  (ix+0) + (iy+0)*m_gridStepY + (iz+1)*m_gridStepZ,
+					// 																  (ix+0) + (iy+1)*m_gridStepY + (iz+0)*m_gridStepZ,
+					// 																  (ix+0) + (iy+1)*m_gridStepY + (iz+1)*m_gridStepZ,
+					// 																  (ix+1) + (iy+0)*m_gridStepY + (iz+0)*m_gridStepZ,
+					// 																  (ix+1) + (iy+0)*m_gridStepY + (iz+1)*m_gridStepZ,
+					// 																  (ix+1) + (iy+1)*m_gridStepY + (iz+0)*m_gridStepZ,
+					// 																  (ix+1) + (iy+1)*m_gridStepY + (iz+1)*m_gridStepZ);
 					
 					p.a0 = (-c000*x1*y1*z1 + c001*x1*y1*z0 + c010*x1*y0*z1 - c011*x1*y0*z0 
 					+ c100*x0*y1*z1 - c101*x0*y1*z0 - c110*x0*y0*z1 + c111*x0*y0*z0)*div;
@@ -480,6 +500,8 @@ public:
 		return true;
 	}
 
+	std::ofstream ofs;
+
 protected:
 
 	void publishMapPointCloudTimer(const ros::TimerEvent& event)
@@ -536,14 +558,24 @@ protected:
 		
 		// Get map parameters
 		double minX, minY, minZ, maxX, maxY, maxZ, res;
-		m_octomap->getMetricMin(minX, minY, minZ);
-		m_octomap->getMetricMax(maxX, maxY, maxZ);
+		// m_octomap->getMetricMin(minX, minY, minZ);
+		// m_octomap->getMetricMax(maxX, maxY, maxZ);
+		maxX = ws_x_max ; // Next lines were added because once were fixed tje point cloud os the different stage the octomap size changed
+		minX = ws_x_min ; 
+		maxY = ws_y_max ; 
+		minY = ws_y_min ; 
+		maxZ = ws_z_max ;
+		minZ = ws_z_min ;
+
+		min_X = round(minX); min_Y = round(minY); min_Z = round(minZ); 
+		max_X = round(maxX); max_Y = round(maxY); max_Z = round(maxZ);
 		res = m_octomap->getResolution();
 		m_maxX = (float)(maxX-minX);
 		m_maxY = (float)(maxY-minY);
 		m_maxZ = (float)(maxZ-minZ);
 		m_resolution = (float)res;
 		m_oneDivRes = 1.0/m_resolution;
+		std::cout << "\tm_oneDivRes: " << m_oneDivRes << std::endl;
 		std::cout << "Map size:\n\tx: " << minX << " to " << maxX << std::endl;
 		std::cout << "\ty: " << minY << " to " << maxY << std::endl;
 		std::cout << "\tz: " << minZ << " to " << maxZ << std::endl;
@@ -588,16 +620,16 @@ protected:
 		pf = fopen(fileName.c_str(), "rb");
 		if(pf == NULL)
 		{
-			std::cout << fileName << " not found!" << std::endl;
+			std::cout << "Error opening file " << fileName << " for reading" << std::endl;
 			return false;
 		}
 		
 		// Write grid general info 
-		fread(&m_gridSize, sizeof(int), 1, pf);
-		fread(&m_gridSizeX, sizeof(int), 1, pf);
-		fread(&m_gridSizeY, sizeof(int), 1, pf);
-		fread(&m_gridSizeZ, sizeof(int), 1, pf);
-		fread(&m_sensorDev, sizeof(float), 1, pf);
+		size_t value_1_ = fread(&m_gridSize, sizeof(int), 1, pf);
+		size_t value_2_ = fread(&m_gridSizeX, sizeof(int), 1, pf);
+		size_t value_3_ = fread(&m_gridSizeY, sizeof(int), 1, pf);
+		size_t value_4_ = fread(&m_gridSizeZ, sizeof(int), 1, pf);
+		size_t value_5_ = fread(&m_sensorDev, sizeof(float), 1, pf);
 		m_gridStepY = m_gridSizeX;
 		m_gridStepZ = m_gridSizeX*m_gridSizeY;
 		
@@ -605,7 +637,7 @@ protected:
 		if(m_grid != NULL)
 			delete []m_grid;
 		m_grid = new gridCell[m_gridSize];
-		fread(m_grid, sizeof(gridCell), m_gridSize, pf);
+		size_t value_6_ = fread(m_grid, sizeof(gridCell), m_gridSize, pf);
 		
 		// Close file
 		fclose(pf);
@@ -616,8 +648,8 @@ protected:
 	void computePointCloud(void)
 	{
 		// Get map parameters
-		double minX, minY, minZ;
-		m_octomap->getMetricMin(minX, minY, minZ);
+		// double minX, minY, minZ;
+		// m_octomap->getMetricMin(minX, minY, minZ);
 		
 		// Load the octomap in PCL for easy nearest neighborhood computation
 		// The point-cloud is shifted to have (0,0,0) as min values
@@ -629,9 +661,9 @@ protected:
 		{
 			if(it != NULL && m_octomap->isNodeOccupied(*it))
 			{
-				m_cloud->points[i].x = it.getX()-minX;
-				m_cloud->points[i].y = it.getY()-minY;
-				m_cloud->points[i].z = it.getZ()-minZ;
+				m_cloud->points[i].x = it.getX();
+				m_cloud->points[i].y = it.getY();
+				m_cloud->points[i].z = it.getZ();
 				i++;
 			}
 		}
@@ -648,6 +680,12 @@ protected:
 	
 	void computeGrid(void)
 	{
+		printf("\n \tReady to Compute Grid 3D\n");
+
+		// std::string name_output_file = "/home/simon/grid_stage.txt";
+		// std::cout << "Saving data in output file for Grid3D : " << name_output_file << std::endl;
+		// ofs.open(name_output_file.c_str(), std::ofstream::app);
+		
 		//Publish percent variable
 		std_msgs::Float32 percent_msg;
 		percent_msg.data = 0;
@@ -680,18 +718,20 @@ protected:
 			{
 				for(int ix=0; ix<m_gridSizeX; ix++)
 				{
-					searchPoint.x = ix*m_resolution;
-					searchPoint.y = iy*m_resolution;
-					searchPoint.z = iz*m_resolution;
+					searchPoint.x = (min_X*m_oneDivRes+ix)*m_resolution;
+					searchPoint.y = (min_Y*m_oneDivRes+iy)*m_resolution;
+					searchPoint.z = (min_Z*m_oneDivRes+iz)*m_resolution;
 					index = ix + iy*m_gridStepY + iz*m_gridStepZ;
 					++count;
 					percent = count/size *100.0;
-					printf("Computing grid map: %3.6lf%%        \r", percent);
+					ROS_INFO_THROTTLE(0.5,"Progress: %lf %%", percent);	
+
+					// printf("index=[%i] m_resolution=[%f] searchPoint=[%f %f %f] ",index, m_resolution, searchPoint.x, searchPoint.y, searchPoint.z);
 					
 					if(m_kdtree.nearestKSearch(searchPoint, 1, pointIdxNKNSearch, pointNKNSquaredDistance) > 0)
 					{
 						dist = pointNKNSquaredDistance[0];
-						m_grid[index].dist = dist;
+						m_grid[index].dist = sqrt(dist);
 						m_grid[index].prob = gaussConst1*exp(-dist*dist*gaussConst2);
 					}
 					else
@@ -699,10 +739,20 @@ protected:
 						m_grid[index].dist = -1.0;
 						m_grid[index].prob =  0.0;
 					}
+					// printf(" , m_grid.dist= %f , m_grid.prob=%f\n", m_grid[index].dist, m_grid[index].prob);
 
+
+					// if (ofs.is_open()) {
+					// 	ofs << "index=["<< index << "] m_resolution=[" << m_resolution << "] searchPoint=[" << searchPoint.x << " " <<searchPoint.y<< " " 
+					// 	<< searchPoint.z << "]  , m_grid.dist= "<< m_grid[index].dist << " , m_grid.prob= " << m_grid[index].prob << " ;" << std::endl;
+					// } 
+					// else 
+					// 	std::cout << "Couldn't be open the output data file for Grid3D" << std::endl;
 				}
 			}
 		}
+		// ofs.close();
+
 	}
 	
 	void buildGridSliceMsg(float z)
@@ -742,9 +792,15 @@ protected:
 			m_gridSliceMsg.data[i] = (int8_t)(m_grid[i+offset].prob*maxProb);
 	}
 	
-	inline int point2grid(const float &x, const float &y, const float &z)
+	int point2grid(const float &x, const float &y, const float &z)
 	{
-		return (int)(x*m_oneDivRes) + (int)(y*m_oneDivRes)*m_gridStepY + (int)(z*m_oneDivRes)*m_gridStepZ;
+		int value_ = (round((x-min_X)*m_oneDivRes)) + round((y-min_Y)*m_oneDivRes)*m_gridStepY + round((z-min_Z)*m_oneDivRes)*m_gridStepZ;
+		// printf("x= %f , y= %f , z= %f / min_X= %f , min_Y= %f , min_Z= %f \n",x, y, z, min_X, min_Y, min_Z);
+		// printf("for X: %f",round((x-min_X)*m_oneDivRes));
+		// printf(" , for Y: %f ",round((y-min_Y)*m_oneDivRes)*m_gridStepY);
+		// printf(" , for Z: %f\n",round((z-min_Z)*m_oneDivRes)*m_gridStepZ);
+		// printf("point2grid:  index_= %i , m_oneDivRes=%f , m_gridStepY=%i , m_gridStepZ=%i \n",value_, m_oneDivRes, m_gridStepY, m_gridStepZ);
+		return value_;
 	}
 };
 

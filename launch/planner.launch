@@ -28,5 +28,4 @@
 
     <node pkg="rviz" name="rviz" type="rviz" args="-d $(find planners_pkg)/viz/$(arg viz_file).rviz" if="$(arg rviz)"/>
 
-
-    </launch>
+</launch>
